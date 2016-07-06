@@ -8,8 +8,8 @@ pam_gate is pam authentication module for gate-sso project. It's heavily inspire
 pam_gate is pam authentication module, we can simply put it inside one of the files in `/etc/pam.d/` 
 Most of the time `/etc/pam.d/common-auth` is the right place to put it. With following configuration
 
-        auth sufficient gate_pam.so url=<gate-sso-host>/profile/authenticate_pam
-        account sufficient gate_pam.so
+        auth sufficient pam_gate.so url=<gate-sso-host>/profile/authenticate_pam
+        account sufficient pam_gate.so
 
 You also need to put `pam_gate.so` file to appropriate place, I am looking for someone to create packages, but in absense of that in Ubuntu this should goto `/lib/*/security` or `/usr/lib/security` in some distros, if you can't figure it out, please create an issue, we will be able help you setup this.
 
