@@ -13,16 +13,13 @@
 
 // libcurl
 #include <curl/curl.h>
+#include <security/pam_appl.h>
 
 /* expected hook */
 PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv) {
-    return PAM_SUCCESS;
+    return PAM_CRED_UNAVAIL;
 }
 
-PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv) {
-    //printf("Acct mgmt\n");
-    return PAM_SUCCESS;
-}
 
 struct gate_response_string {
     char *ptr;
@@ -145,6 +142,7 @@ int get_ip_addresses(char **addresses) {
     int addr_counter = 0;
     int addr_mem = 0;
     char *ip_fmt_str;
+    int count = 0;
     for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr->sa_family == AF_INET) {
             sa = (struct sockaddr_in *) ifa->ifa_addr;
@@ -165,7 +163,8 @@ int get_ip_addresses(char **addresses) {
     //strcat(ip_fmt_str, (const char *) "[");
 
 
-    for (int count = 0; count < addr_counter; count++) {
+
+    for (count = 0; count < addr_counter; count++) {
         //strcat(ip_fmt_str, (const char *) "\"");
         strcat(ip_fmt_str, (const char *) ip_addresses[count]);
         //strcat(ip_fmt_str, (const char *) "\"");
@@ -179,6 +178,44 @@ int get_ip_addresses(char **addresses) {
     //printf("returning addr_counter %s\n", *addresses);
     return addr_counter;
 }
+
+PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv) {
+    fprintf(stderr, "SM ACCT Management called");
+
+    int ret = PAM_SUCCESS;
+
+    const char *pUsername = NULL;
+    const char *pUrl = NULL;
+    const char *pCaFile = NULL;
+    const char *pToken = NULL;
+
+    char pUrlWithUser[1000];
+
+
+    char *ip_addresses;
+
+    pToken = getArg("token", argc, argv);
+
+    memset(pUrlWithUser, 0, 1000);
+
+    if ( pam_get_user(pamh, &pUsername, NULL) != 0 ) {
+        fprintf(stderr, "Can't obtain user name");
+        ret = PAM_USER_UNKNOWN;
+    }
+
+    get_ip_addresses(&ip_addresses);
+
+    sprintf(pUrlWithUser, "%s/?token=%s&user=%s&addresses=%s", pUrl, pToken, pUsername, ip_addresses);
+
+    fprintf(stderr, "Calling gate : %s", pUrlWithUser);
+
+    if (getUrlWithUser(pUrlWithUser, pCaFile) != 0) {
+        ret = PAM_USER_UNKNOWN;
+    }
+
+    return ret;
+}
+
 
 
 /* expected hook, this is where custom stuff happens */
