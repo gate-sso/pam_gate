@@ -226,6 +226,10 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     const char *pUrl = NULL;
     const char *pCaFile = NULL;
 
+    //default
+    int MIN_CONST = 2000;
+    int pMinUserId = 0;
+
     char pUrlWithUser[1000];
 
     struct pam_message msg;
@@ -237,6 +241,12 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
     int print_debug = 0;
 
+    pMinUserId = atoi(getArg("min_user_id", argc, argv));
+
+    if ( pMinUserId == 0)
+      pMinUserId = MIN_CONST;
+
+    if ( pMinUserId < 1000 )
 
     msg.msg_style = PAM_PROMPT_ECHO_OFF;
     msg.msg = "Password: ";
@@ -259,6 +269,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
         fprintf(stderr, "Couldn't get pam_conv\n");
         return PAM_AUTH_ERR;
     }
+
 
     pItem->conv(1, &pMsg, &pResp, pItem->appdata_ptr);
 
