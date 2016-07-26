@@ -6,6 +6,10 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <ifaddrs.h>
+#include <syslog.h>
+
+
+#include <security/pam_ext.h>
 
 
 // pam stuff
@@ -30,7 +34,6 @@ void init_string(struct gate_response_string *s) {
     s->len = 0;
     s->ptr = malloc(s->len + 1);
     if (s->ptr == NULL) {
-        fprintf(stderr, "malloc() failed\n");
         exit(EXIT_FAILURE);
     }
     s->ptr[0] = '\0';
@@ -71,7 +74,6 @@ static int writeFn(void *buf, size_t len, size_t size, struct gate_response_stri
     size_t new_len = s->len + len * size;
     s->ptr = realloc(s->ptr, new_len + 1);
     if (s->ptr == NULL) {
-        fprintf(stderr, "realloc() failed\n");
         exit(EXIT_FAILURE);
     }
     memcpy(s->ptr + s->len, buf, size * len);
@@ -111,7 +113,7 @@ static int getUrlWithUser(const char *pUrl, const char *pCaFile) {
     // SSL needs 16k of random stuff. We'll give it some space in RAM.
     curl_easy_setopt(pCurl, CURLOPT_RANDOM_FILE, "/dev/urandom");
     curl_easy_setopt(pCurl, CURLOPT_SSL_VERIFYPEER, 0);
-    curl_easy_setopt(pCurl, CURLOPT_SSL_VERIFYHOST, 2);
+    curl_easy_setopt(pCurl, CURLOPT_SSL_VERIFYHOST, 0);
     curl_easy_setopt(pCurl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
 
 
@@ -180,7 +182,6 @@ int get_ip_addresses(char **addresses) {
 }
 
 PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv) {
-    fprintf(stderr, "SM ACCT Management called");
 
     int ret = PAM_SUCCESS;
 
@@ -195,19 +196,18 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
     char *ip_addresses;
 
     pToken = getArg("token", argc, argv);
+    pUrl = getArg("url", argc, argv);
 
     memset(pUrlWithUser, 0, 1000);
 
-    if ( pam_get_user(pamh, &pUsername, NULL) != 0 ) {
-        fprintf(stderr, "Can't obtain user name");
+    if (pam_get_user(pamh, &pUsername, NULL) != 0) {
         ret = PAM_USER_UNKNOWN;
     }
 
     get_ip_addresses(&ip_addresses);
 
     sprintf(pUrlWithUser, "%s/?token=%s&user=%s&addresses=%s", pUrl, pToken, pUsername, ip_addresses);
-
-    fprintf(stderr, "Calling gate : %s", pUrlWithUser);
+    pam_syslog(pamh, LOG_ERR, "pam_gate authentication for %s at %s for host %s", pUsername, pUrl, ip_addresses);
 
     if (getUrlWithUser(pUrlWithUser, pCaFile) != 0) {
         ret = PAM_USER_UNKNOWN;
@@ -243,30 +243,27 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
     pMinUserId = atoi(getArg("min_user_id", argc, argv));
 
-    if ( pMinUserId == 0)
-      pMinUserId = MIN_CONST;
+    if (pMinUserId == 0)
+        pMinUserId = MIN_CONST;
 
-    if ( pMinUserId < 1000 )
+    if (pMinUserId < 1000)
 
-    msg.msg_style = PAM_PROMPT_ECHO_OFF;
+        msg.msg_style = PAM_PROMPT_ECHO_OFF;
     msg.msg = "Password: ";
 
 
     if (pam_get_user(pamh, &pUsername, NULL) != PAM_SUCCESS) {
-        fprintf(stderr, "Gate Pam authentication - can't get user\n");
         return PAM_AUTH_ERR;
 
     }
 
     pUrl = getArg("url", argc, argv);
     if (!pUrl) {
-        fprintf(stderr, "Gate Pam authentication - don't know the URL for host\n");
         return PAM_AUTH_ERR;
     }
 
     pCaFile = getArg("cafile", argc, argv);
     if (pam_get_item(pamh, PAM_CONV, (const void **) &pItem) != PAM_SUCCESS || !pItem) {
-        fprintf(stderr, "Couldn't get pam_conv\n");
         return PAM_AUTH_ERR;
     }
 
