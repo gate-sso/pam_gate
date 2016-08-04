@@ -191,7 +191,6 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
     const char *pToken = NULL;
 
     char pUrlWithUser[1000];
-    char pAuthURL[1000] = "/profile/authenticate_pam";
 
 
     char *ip_addresses;
@@ -226,7 +225,7 @@ static char *get_first_pass(pam_handle_t *pamh) {
     return NULL;
 }
 
-static int get_user_id(char *sUsername, char *sUrl, char *sToken) {
+static int get_user_id(const char *sUsername, const char *sUrl, const char *sToken) {
     char pUrlWithUser[1000];
     sprintf(pUrlWithUser, "%s/profile/%s/id?token=%s", sUrl, sUsername, sToken);
     return getUrlWithUser(pUrlWithUser, NULL);
