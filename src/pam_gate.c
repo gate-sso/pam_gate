@@ -129,7 +129,7 @@ static int getUrlWithUser(const char *pUrl, const char *pCaFile) {
     res = atoi(s.ptr);
 
     //printf("Result %s Length %d\n", s.ptr, (int)strlen(s.ptr));
-    if (strlen(s.ptr) > 2 || strlen(s.ptr) < 1)
+    if (strlen(s.ptr) == 0)
         res = 1;
 
     return res;
@@ -191,6 +191,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
     const char *pToken = NULL;
 
     char pUrlWithUser[1000];
+    char pAuthURL[1000] = "/profile/authenticate_pam"
 
 
     char *ip_addresses;
@@ -216,7 +217,20 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
     return ret;
 }
 
+static char *get_first_pass(pam_handle_t *pamh) {
+    PAM_CONST void *password = NULL;
+    if (pam_get_item(pamh, PAM_AUTHTOK, &password) == PAM_SUCCESS &&
+        password) {
+        return strdup((const char *) password);
+    }
+    return NULL;
+}
 
+static int get_user_id(char *sUsername, char *sUrl, char *sToken) {
+    char pUrlWithUser[1000];
+    sprintf(pUrlWithUser, "%s/profile/%s/id?token=%s", sUrl, sUsername, sToken);
+    return getUrlWithUser(pUrlWithUser, NULL);
+}
 
 /* expected hook, this is where custom stuff happens */
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv) {
@@ -224,6 +238,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
     const char *pUsername = NULL;
     const char *pUrl = NULL;
+
     const char *pCaFile = NULL;
 
     //default
@@ -236,37 +251,55 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
     struct pam_conv *pItem;
     struct pam_response *pResp;
     const struct pam_message *pMsg = &msg;
+    const char *pToken;
+    const char *pPassword;
 
     char *ip_addresses;
-
-    int print_debug = 0;
+    int iUserId;
 
     pMinUserId = atoi(getArg("min_user_id", argc, argv));
 
     if (pMinUserId == 0)
         pMinUserId = MIN_CONST;
 
-    if (pMinUserId < 1000)
+    pUrl = getArg("url", argc, argv);
+    pToken = getArg("token", argc, argv);
+    pCaFile = getArg("cafile", argc, argv);
 
-        msg.msg_style = PAM_PROMPT_ECHO_OFF;
-    msg.msg = "Password: ";
-
+    if (!pUrl && !pToken) {
+        return PAM_AUTH_ERR;
+    }
 
     if (pam_get_user(pamh, &pUsername, NULL) != PAM_SUCCESS) {
         return PAM_AUTH_ERR;
-
     }
 
-    pUrl = getArg("url", argc, argv);
-    if (!pUrl) {
-        return PAM_AUTH_ERR;
+    iUserId = get_user_id(pUsername, pUrl, pToken);
+
+    if (iUserId <= pMinUserId)
+        return PAM_USER_UNKNOWN;
+
+    //Try get password
+    pPassword = get_first_pass(pamh);
+
+    //We got password that means we are not doing conversation
+    memset(pUrlWithUser, 0, 1000);
+    if (pPassword) {
+        sprintf(pUrlWithUser, "%s/profile/authenticate?user=%s&password=%s", pUrl, pUsername, pPassword);
+        if (getUrlWithUser(pUrlWithUser, pCaFile) != 0) {
+            return PAM_AUTH_ERR;
+        }
     }
 
-    pCaFile = getArg("cafile", argc, argv);
+    //This means we are not getting password already
+    //Ask user for password.
+
+    msg.msg_style = PAM_PROMPT_ECHO_OFF;
+    msg.msg = "MFA Token: ";
+
     if (pam_get_item(pamh, PAM_CONV, (const void **) &pItem) != PAM_SUCCESS || !pItem) {
         return PAM_AUTH_ERR;
     }
-
 
     pItem->conv(1, &pMsg, &pResp, pItem->appdata_ptr);
 
@@ -276,23 +309,13 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
     get_ip_addresses(&ip_addresses);
 
-    sprintf(pUrlWithUser, "%s/?user=%s&password=%s&addresses=%s", pUrl, pUsername, pResp[0].resp, ip_addresses);
-
-    if (print_debug)
-        printf("got ip addresses %s\n", ip_addresses);
-
+    sprintf(pUrlWithUser, "%s/profile/authenticate_pam?user=%s&password=%s&addresses=%s", pUrl, pUsername,
+            pResp[0].resp, ip_addresses);
     free(ip_addresses);
-    if (print_debug)
-        printf("URL %s\n", pUrlWithUser);
     if (getUrlWithUser(pUrlWithUser, pCaFile) != 0) {
         ret = PAM_AUTH_ERR;
     }
-    /*if (getUrl(pUrl, pUsername, pResp[0].resp, pCaFile) != 0) {
-        printf("Gate Pam authentication - Sorry I can't do this.\n");
-        ret = PAM_AUTH_ERR;
-    }*/
     memset(pResp[0].resp, 0, strlen(pResp[0].resp));
     free(pResp);
-
     return ret;
 }
