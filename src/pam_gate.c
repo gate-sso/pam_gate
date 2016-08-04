@@ -191,7 +191,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
     const char *pToken = NULL;
 
     char pUrlWithUser[1000];
-    char pAuthURL[1000] = "/profile/authenticate_pam"
+    char pAuthURL[1000] = "/profile/authenticate_pam";
 
 
     char *ip_addresses;
