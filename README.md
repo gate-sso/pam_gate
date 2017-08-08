@@ -10,8 +10,8 @@ Configuration
 pam_gate is pam authentication module, we can simply put it inside one of the files in `/etc/pam.d/` 
 Most of the time `/etc/pam.d/common-auth` is the right place to put it. With following configuration
 
-    auth    sufficient      pam_gate.so url=https://<your gate host address> token=<your gate token>
-    account sufficient      pam_gate.so url=https://<your gate host address> token=<your gate token>
+        auth    sufficient      pam_gate.so url=https://<your gate host address> token=<your gate token>
+        account sufficient      pam_gate.so url=https://<your gate host address> token=<your gate token>
 
 You also need to put `pam_gate.so` file to appropriate place, I am looking for someone to create packages, but in absense of that in Ubuntu this should goto `/lib/*/security` or `/usr/lib/security` in some distros, if you can't figure it out, please create an issue, we will be able help you setup this.
 
