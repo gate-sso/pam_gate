@@ -1,15 +1,17 @@
-##pam_gate
+pam_gate
+=====
 pam_gate is pam authentication module for gate-sso project. It's heavily inspired by pam-http from Kragen Sitaker and then we forked it from https://github.com/beatgammit/pam-http Jameson Little's repo but since it diverged so much in terms of functionlity and also it started moving towards different curl based password authentication - then we just moved it into new repo, since there is no way this will be going back there. Most probably original repo's functions are still there but they are heavily modified.
 
 --
 
-####Configuration
+Configuration
+=====
 
 pam_gate is pam authentication module, we can simply put it inside one of the files in `/etc/pam.d/` 
 Most of the time `/etc/pam.d/common-auth` is the right place to put it. With following configuration
 
-        auth sufficient pam_gate.so url=<gate-sso-host>/profile/authenticate_pam
-        account sufficient pam_gate.so
+  auth    sufficient      pam_gate.so url=https://<your gate host address> token=<your gate token>
+  account sufficient      pam_gate.so url=https://<your gate host address> token=<your gate token>
 
 You also need to put `pam_gate.so` file to appropriate place, I am looking for someone to create packages, but in absense of that in Ubuntu this should goto `/lib/*/security` or `/usr/lib/security` in some distros, if you can't figure it out, please create an issue, we will be able help you setup this.
 

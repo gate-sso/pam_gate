@@ -208,6 +208,7 @@ PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const c
 
     sprintf(pUrlWithUser, "%s/profile/verify?token=%s&user=%s&addresses=%s", pUrl, pToken, pUsername, ip_addresses);
     pam_syslog(pamh, LOG_ERR, "pam_gate authentication for %s at %s for host %s", pUsername, pUrl, ip_addresses);
+    pam_syslog(pamh, LOG_ERR, "pam_gate authentication performing at %s", pUrlWithUser);
 
     if (getUrlWithUser(pUrlWithUser, pCaFile) != 0) {
         ret = PAM_USER_UNKNOWN;
